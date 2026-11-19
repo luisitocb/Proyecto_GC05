@@ -152,17 +152,44 @@ function positiveInt(text, max) {
   return number >= 1 && number <= max ? number : null;
 }
 
+/** Lee un filtro de la query string: vacío si no viene y error si viene repetido. */
+function readFiltro(raw, name, errors) {
+  const value = raw[name];
+  if (value === undefined) return '';
+  if (typeof value !== 'string') { errors[name] = 'Indica este filtro una sola vez.'; return ''; }
+  return value.trim();
+}
+
+/** Comprueba que las fechas del rango existan y que la inicial no sea posterior a la final. */
+function validateRangoFechas(fechaDesde, fechaHasta, errors) {
+  if (fechaDesde && !isDate(fechaDesde)) errors.fechaDesde = 'Indica una fecha existente (AAAA-MM-DD).';
+  if (fechaHasta && !isDate(fechaHasta)) errors.fechaHasta = 'Indica una fecha existente (AAAA-MM-DD).';
+  if (fechaDesde && fechaHasta && !errors.fechaDesde && !errors.fechaHasta && fechaDesde > fechaHasta) {
+    errors.fechaHasta = 'La fecha final no puede ser anterior a la inicial.';
+  }
+}
+
+/** Página y tamaño de página; si no se indican, se usan los valores por defecto. */
+function validatePaginacion(paginaText, tamanoText, errors) {
+  const pagina = paginaText ? positiveInt(paginaText, 100000) : 1;
+  if (pagina === null) errors.pagina = 'La página debe ser un número entero mayor que 0.';
+  const tamano = tamanoText ? positiveInt(tamanoText, BUSQUEDA_TAMANO_MAX) : BUSQUEDA_TAMANO_DEFECTO;
+  if (tamano === null) errors.tamano = `El tamaño de página debe estar entre 1 y ${BUSQUEDA_TAMANO_MAX}.`;
+  return { pagina, tamano };
+}
+
+// corte: instante devuelto por la primera página. Fija el listado para que, al pasar de página,
+// los hallazgos publicados después no desplacen resultados (US-009-AC-02).
+function isCorteValido(corte) {
+  return validator.isISO8601(corte, { strict: true }) && Number.isFinite(Date.parse(corte));
+}
+
 /** Valida la query string. Todos los filtros son opcionales; un parámetro repetido o desconocido es un error. */
 export function validateBusqueda(query) {
   const errors = {};
   const raw = query && typeof query === 'object' ? query : {};
   if (Object.keys(raw).some(key => !busquedaFields.includes(key))) errors.parametros = `Solo se admiten: ${busquedaFields.join(', ')}.`;
-  const text = (name) => {
-    const value = raw[name];
-    if (value === undefined) return '';
-    if (typeof value !== 'string') { errors[name] = 'Indica este filtro una sola vez.'; return ''; }
-    return value.trim();
-  };
+  const text = name => readFiltro(raw, name, errors);
 
   const q = text('q').replace(/\s+/g, ' ');
   if ([...q].length > BUSQUEDA_TEXTO_MAX) errors.q = `El texto de búsqueda no puede superar los ${BUSQUEDA_TEXTO_MAX} caracteres.`;
@@ -171,24 +198,11 @@ export function validateBusqueda(query) {
   const facultadId = text('facultadId');
   if (facultadId && !validator.isUUID(facultadId)) errors.facultadId = 'Selecciona una facultad válida.';
   const fechaDesde = text('fechaDesde');
-  if (fechaDesde && !isDate(fechaDesde)) errors.fechaDesde = 'Indica una fecha existente (AAAA-MM-DD).';
   const fechaHasta = text('fechaHasta');
-  if (fechaHasta && !isDate(fechaHasta)) errors.fechaHasta = 'Indica una fecha existente (AAAA-MM-DD).';
-  if (fechaDesde && fechaHasta && !errors.fechaDesde && !errors.fechaHasta && fechaDesde > fechaHasta) {
-    errors.fechaHasta = 'La fecha final no puede ser anterior a la inicial.';
-  }
-  const paginaText = text('pagina');
-  const pagina = paginaText ? positiveInt(paginaText, 100000) : 1;
-  if (pagina === null) errors.pagina = 'La página debe ser un número entero mayor que 0.';
-  const tamanoText = text('tamano');
-  const tamano = tamanoText ? positiveInt(tamanoText, BUSQUEDA_TAMANO_MAX) : BUSQUEDA_TAMANO_DEFECTO;
-  if (tamano === null) errors.tamano = `El tamaño de página debe estar entre 1 y ${BUSQUEDA_TAMANO_MAX}.`;
-  // corte: instante devuelto por la primera página. Fija el listado para que, al pasar de página,
-  // los hallazgos publicados después no desplacen resultados (US-009-AC-02).
+  validateRangoFechas(fechaDesde, fechaHasta, errors);
+  const { pagina, tamano } = validatePaginacion(text('pagina'), text('tamano'), errors);
   const corte = text('corte');
-  if (corte && (!validator.isISO8601(corte, { strict: true }) || !Number.isFinite(Date.parse(corte)))) {
-    errors.corte = 'El corte de la búsqueda no es válido. Vuelve a la primera página.';
-  }
+  if (corte && !isCorteValido(corte)) errors.corte = 'El corte de la búsqueda no es válido. Vuelve a la primera página.';
 
   return {
     errors,
