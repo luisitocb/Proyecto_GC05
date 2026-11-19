@@ -6,7 +6,7 @@ export const HALLAZGO_MAX_IMAGES = 5;
 export const HALLAZGO_MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 // Límites técnicos del contrato de esta API, no nuevas estimaciones ni requisitos del profesor.
 export const HALLAZGO_TEXT_MAX = 2000;
-const allowedFields = ['facultadId', 'categoriaId', 'descripcion', 'fechaHallazgo', 'latitud', 'longitud', 'puntoEntrega', 'rasgosPrivados'];
+const allowedFields = new Set(['facultadId', 'categoriaId', 'descripcion', 'fechaHallazgo', 'latitud', 'longitud', 'puntoEntrega', 'rasgosPrivados']);
 
 const texto = value => (typeof value === 'string' ? value : '');
 const isTextoOpcional = value => value === undefined || (typeof value === 'string' && [...value].length <= HALLAZGO_TEXT_MAX);
@@ -16,7 +16,7 @@ const isCoordenada = (value, limit) => typeof value === 'number' && Number.isFin
 export function validateHallazgo(data, today = new Date().toISOString().slice(0, 10)) {
   const errors = {};
   if (!data || typeof data !== 'object' || Array.isArray(data)) return { errors: { datos: 'Envía un objeto JSON en el campo datos.' } };
-  if (Object.keys(data).some(key => !allowedFields.includes(key))) errors.datos = 'Hay campos no permitidos. El autor y el estado los decide el servidor.';
+  if (Object.keys(data).some(key => !allowedFields.has(key))) errors.datos = 'Hay campos no permitidos. El autor y el estado los decide el servidor.';
   // US-008: cualquier usuario autenticado publica y elige la facultad donde entrega el objeto.
   const facultadId = texto(data.facultadId);
   if (!validator.isUUID(facultadId)) errors.facultadId = 'Selecciona una facultad válida.';
@@ -69,7 +69,7 @@ export function validateHallazgoUpdate(data, today = new Date().toISOString().sl
 
   const fields = Object.keys(data);
 
-  if (!fields.length || fields.some(field => !allowedFields.includes(field))) {
+  if (!fields.length || fields.some(field => !allowedFields.has(field))) {
     return { errors: { datos: 'Incluye únicamente campos editables del hallazgo.' } };
   }
 
