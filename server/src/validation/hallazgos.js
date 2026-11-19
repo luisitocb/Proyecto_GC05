@@ -8,30 +8,30 @@ export const HALLAZGO_MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 export const HALLAZGO_TEXT_MAX = 2000;
 const allowedFields = ['facultadId', 'categoriaId', 'descripcion', 'fechaHallazgo', 'latitud', 'longitud', 'puntoEntrega', 'rasgosPrivados'];
 
+const texto = value => (typeof value === 'string' ? value : '');
+const isTextoOpcional = value => value === undefined || (typeof value === 'string' && [...value].length <= HALLAZGO_TEXT_MAX);
+// Raúl: enviar números JSON, no cadenas; 0 es una coordenada válida.
+const isCoordenada = (value, limit) => typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= limit;
+
 export function validateHallazgo(data, today = new Date().toISOString().slice(0, 10)) {
   const errors = {};
   if (!data || typeof data !== 'object' || Array.isArray(data)) return { errors: { datos: 'Envía un objeto JSON en el campo datos.' } };
   if (Object.keys(data).some(key => !allowedFields.includes(key))) errors.datos = 'Hay campos no permitidos. El autor y el estado los decide el servidor.';
   // US-008: cualquier usuario autenticado publica y elige la facultad donde entrega el objeto.
-  const facultadId = typeof data.facultadId === 'string' ? data.facultadId : '';
+  const facultadId = texto(data.facultadId);
   if (!validator.isUUID(facultadId)) errors.facultadId = 'Selecciona una facultad válida.';
-  const categoriaId = typeof data.categoriaId === 'string' ? data.categoriaId : '';
+  const categoriaId = texto(data.categoriaId);
   if (!validator.isUUID(categoriaId)) errors.categoriaId = 'Selecciona una categoría válida.';
-  const descripcion = typeof data.descripcion === 'string' ? data.descripcion.trim() : '';
+  const descripcion = texto(data.descripcion).trim();
   if (!descripcion || [...descripcion].length > HALLAZGO_TEXT_MAX) errors.descripcion = 'Introduce una descripción de entre 1 y 2000 caracteres.';
-  const fechaHallazgo = typeof data.fechaHallazgo === 'string' ? data.fechaHallazgo : '';
-  const date = new Date(`${fechaHallazgo}T00:00:00Z`);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaHallazgo) || !Number.isFinite(date.getTime()) ||
-      date.toISOString().slice(0, 10) !== fechaHallazgo || fechaHallazgo > today) {
-    errors.fechaHallazgo = 'Indica una fecha existente que no sea futura (AAAA-MM-DD).';
-  }
-  // Raúl: enviar números JSON, no cadenas; 0 es una coordenada válida.
-  if (typeof data.latitud !== 'number' || !Number.isFinite(data.latitud) || Math.abs(data.latitud) > 90) errors.latitud = 'La latitud debe estar entre -90 y 90.';
-  if (typeof data.longitud !== 'number' || !Number.isFinite(data.longitud) || Math.abs(data.longitud) > 180) errors.longitud = 'La longitud debe estar entre -180 y 180.';
+  const fechaHallazgo = texto(data.fechaHallazgo);
+  if (!isDate(fechaHallazgo) || fechaHallazgo > today) errors.fechaHallazgo = 'Indica una fecha existente que no sea futura (AAAA-MM-DD).';
+  if (!isCoordenada(data.latitud, 90)) errors.latitud = 'La latitud debe estar entre -90 y 90.';
+  if (!isCoordenada(data.longitud, 180)) errors.longitud = 'La longitud debe estar entre -180 y 180.';
   const optional = {};
   for (const field of ['puntoEntrega', 'rasgosPrivados']) {
-    if (data[field] !== undefined && (typeof data[field] !== 'string' || [...data[field]].length > HALLAZGO_TEXT_MAX)) errors[field] = 'Debe ser un texto de hasta 2000 caracteres.';
-    optional[field] = typeof data[field] === 'string' ? data[field].trim() : '';
+    if (!isTextoOpcional(data[field])) errors[field] = 'Debe ser un texto de hasta 2000 caracteres.';
+    optional[field] = texto(data[field]).trim();
   }
   return { errors, value: { facultadId, categoriaId, descripcion, fechaHallazgo, latitud: data.latitud, longitud: data.longitud, ...optional } };
 }
