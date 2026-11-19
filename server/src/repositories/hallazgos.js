@@ -300,7 +300,8 @@ export function createHallazgoRepository(pool) {
         const where = ["h.estado = 'Activo'", 'h.created_at <= $1::timestamptz'];
         const add = (sql, value) => { params.push(value); where.push(sql.replace('?', `$${params.length}`)); };
         // Cada palabra debe aparecer en la descripción pública; % y _ se buscan como texto literal.
-        for (const termino of terminos) add('h.descripcion ILIKE ?', `%${termino.replace(/[\\%_]/g, String.raw`\$&`)}%`);
+        const escapeLike = String.raw`\$&`;
+        for (const termino of terminos) add('h.descripcion ILIKE ?', `%${termino.replace(/[\\%_]/g, escapeLike)}%`);
         if (categoriaId) add('h.categoria_id = ?::uuid', categoriaId);
         if (facultadId) add('h.facultad_id = ?::uuid', facultadId);
         if (fechaDesde) add('h.fecha_hallazgo >= ?::date', fechaDesde);
