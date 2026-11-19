@@ -350,7 +350,7 @@ export function createHallazgoRepository(pool) {
       return { facultades, categorias };
     },
 
-    /** Guarda TODO o NADA: hallazgo, rasgos privados y fotos en una única transacción. */
+    /** Guarda de forma atómica el hallazgo, sus rasgos privados y sus fotos en una única transacción: o se guarda completo o no se guarda nada. */
     async publish(input) {
       const client = await pool.connect();
       try {
