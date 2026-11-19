@@ -208,7 +208,7 @@ export function createHallazgoService(storage) {
       }
       const validated = await validateHallazgoImages(files);
       if (validated.error) throw new HallazgoError(400, 'Revisa las imágenes.', { imagenes: validated.error });
-      // SCRUM-105: el repositorio guarda TODO o NADA en una transacción, separa los rasgos
+      // SCRUM-105: el repositorio guarda el hallazgo de forma atómica en una transacción, separa los rasgos
       // privados y vuelve a comprobar cuenta, facultad y categoría antes de guardar.
       const created = await storage.publish({
         ...value, autorId: userId, estado: 'Activo', imagenes: validated.images,
