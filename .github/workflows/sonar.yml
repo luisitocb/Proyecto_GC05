@@ -12,6 +12,17 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           fetch-depth: 0  # historial completo: necesario para el blame y el "new code"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Instalar dependencias
+        run: npm ci
+      # SonarCloud no ejecuta las pruebas: solo lee el informe de cobertura que se genera aquí.
+      - name: Pruebas con informe de cobertura
+        run: |
+          npm install --no-save @vitest/coverage-v8@5.1.0
+          npx vitest run --coverage.enabled --coverage.provider=v8 --coverage.reporter=lcov
       - name: Caché de SonarQube
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
